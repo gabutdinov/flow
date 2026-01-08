@@ -16,7 +16,7 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY is not set in environment variables")
 
 # Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///bot.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////app/bot.db")
 
 # Logging configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
