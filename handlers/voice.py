@@ -42,46 +42,10 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
         await voice_file.download_to_drive(voice_path)
         logger.info(f"Downloaded voice message from user {telegram_id}")
 
-        # Transcribe audio to text and detect language
+        # Transcribe audio to text
         await update.message.chat.send_action("typing")
-        user_text, detected_language = await transcribe_audio(voice_path)
-        logger.info(f"Transcribed: {user_text} (language: {detected_language})")
-
-        # Check if message is in English (use Whisper's detection)
-        if detected_language != "en":
-            # Map language codes to readable names
-            language_names = {
-                "ru": "русский язык",
-                "es": "испанский язык",
-                "fr": "французский язык",
-                "de": "немецкий язык",
-                "it": "итальянский язык",
-                "pt": "португальский язык",
-                "zh": "китайский язык",
-                "ja": "японский язык",
-                "ko": "корейский язык",
-                "ar": "арабский язык",
-                "hi": "хинди",
-                "tr": "турецкий язык",
-                "pl": "польский язык",
-                "uk": "украинский язык"
-            }
-            lang_name = language_names.get(detected_language, f"язык ({detected_language})")
-
-            error_message = (
-                f"❌ Обнаружен {lang_name}\n\n"
-                f"Пожалуйста, отправьте голосовое сообщение **на английском языке**.\n\n"
-                f"This bot is for practicing English. Please send your voice message in English."
-            )
-            await update.message.reply_text(error_message, parse_mode="Markdown")
-            logger.warning(f"User {telegram_id} sent voice message in {lang_name} ({detected_language})")
-
-            # Clean up temp files and exit
-            try:
-                os.remove(voice_path)
-            except Exception as e:
-                logger.warning(f"Error cleaning up temp files: {e}")
-            return
+        user_text = await transcribe_audio(voice_path)
+        logger.info(f"Transcribed: {user_text}")
 
         # Analyze user's message and send feedback
         await update.message.chat.send_action("typing")
@@ -103,10 +67,10 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         # Send short analysis
-        short_message = f"{emoji} {corrected_sentence}\n\n_{short_analysis}_"
+        short_message = f"{emoji} {corrected_sentence}\n\n<i>{short_analysis}</i>"
         analysis_msg = await update.message.reply_text(
             short_message,
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_markup=reply_markup
         )
 
@@ -147,6 +111,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
         # Try to send voice message, fallback to text if forbidden
         audio_file_id = None
+        voice_forbidden = False
         try:
             # Create inline keyboard with "Show text" button
             keyboard = [[InlineKeyboardButton("📝 Показать текст", callback_data=f"show_text")]]
@@ -170,16 +135,33 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
         except BadRequest as e:
             if "Voice_messages_forbidden" in str(e):
                 # User has disabled voice messages in privacy settings
-                await update.message.reply_text(
+                voice_forbidden = True
+
+                # Create inline keyboard with "Try again" button
+                keyboard = [[InlineKeyboardButton("🔄 Попробовать снова", callback_data="retry_voice")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
+                error_message = await update.message.reply_text(
                     f"{response_text}\n\n"
                     "⚠️ Я не могу отправить голосовое сообщение, так как у вас отключена "
                     "возможность их получения.\n\n"
                     "Чтобы включить голосовые сообщения:\n"
                     "1. Откройте Настройки Telegram\n"
                     "2. Конфиденциальность → Голосовые сообщения\n"
-                    "3. Выберите 'Все' или 'Мои контакты'\n\n"
-                    "Пока что я буду отвечать только текстом."
+                    "3. Выберите 'Все' или добавьте Flow в 'Разрешать всегда'\n\n"
+                    "Пока что я буду отвечать только текстом.",
+                    reply_markup=reply_markup
                 )
+
+                # Store response text and audio path for retry
+                message_key = f"{error_message.chat.id}_{error_message.message_id}"
+                if 'retry_voice_data' not in context.bot_data:
+                    context.bot_data['retry_voice_data'] = {}
+                context.bot_data['retry_voice_data'][message_key] = {
+                    'response_text': response_text,
+                    'tts_path': tts_path,
+                    'user_message_id': update.message.message_id
+                }
                 logger.warning(f"Voice messages forbidden for user {telegram_id}")
             else:
                 # Re-raise if it's a different error
@@ -199,7 +181,9 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
         # Clean up temp files
         try:
             os.remove(voice_path)
-            os.remove(tts_path)
+            # Don't delete tts_path if voice messages are forbidden (needed for retry)
+            if not voice_forbidden:
+                os.remove(tts_path)
         except Exception as e:
             logger.warning(f"Error cleaning up temp files: {e}")
 
@@ -296,7 +280,7 @@ async def show_transcription_callback(update: Update, context: ContextTypes.DEFA
             try:
                 await query.edit_message_text(
                     text=full_message,
-                    parse_mode="Markdown",
+                    parse_mode="HTML",
                     reply_markup=reply_markup
                 )
                 logger.info(f"Showed full analysis for message {message_key}")
@@ -327,7 +311,7 @@ async def show_transcription_callback(update: Update, context: ContextTypes.DEFA
             try:
                 await query.edit_message_text(
                     text=short_text,
-                    parse_mode="Markdown",
+                    parse_mode="HTML",
                     reply_markup=reply_markup
                 )
                 logger.info(f"Hid full analysis for message {message_key}")
@@ -337,3 +321,64 @@ async def show_transcription_callback(update: Update, context: ContextTypes.DEFA
         else:
             await query.answer("Ошибка", show_alert=True)
             logger.warning(f"Short analysis not found for message {message_key}")
+
+    # Handle retry voice message
+    elif query.data == "retry_voice":
+        retry_voice_data_dict = context.bot_data.get('retry_voice_data', {})
+        retry_data = retry_voice_data_dict.get(message_key)
+
+        if retry_data:
+            response_text = retry_data['response_text']
+            tts_path = retry_data['tts_path']
+
+            # Try to send voice message again
+            try:
+                # Create inline keyboard with "Show text" button
+                keyboard = [[InlineKeyboardButton("📝 Показать текст", callback_data=f"show_text")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
+                # Send voice message without caption
+                with open(tts_path, "rb") as audio_file:
+                    voice_message = await query.message.reply_voice(
+                        voice=audio_file,
+                        reply_markup=reply_markup
+                    )
+
+                # Store the transcription text for later retrieval
+                voice_message_key = f"{voice_message.chat.id}_{voice_message.message_id}"
+                if 'transcriptions' not in context.bot_data:
+                    context.bot_data['transcriptions'] = {}
+                context.bot_data['transcriptions'][voice_message_key] = response_text
+                logger.info(f"Stored transcription for message {voice_message_key}")
+
+                # Delete the error message
+                await query.message.delete()
+
+                # Clean up retry data
+                del retry_voice_data_dict[message_key]
+
+                # Clean up temp audio file
+                try:
+                    if os.path.exists(tts_path):
+                        os.remove(tts_path)
+                        logger.info(f"Cleaned up temp file: {tts_path}")
+                except Exception as e:
+                    logger.warning(f"Error cleaning up temp file {tts_path}: {e}")
+
+                await query.answer("✅ Голосовое сообщение отправлено!", show_alert=False)
+                logger.info(f"Successfully retried voice message for {message_key}")
+
+            except BadRequest as e:
+                if "Voice_messages_forbidden" in str(e):
+                    await query.answer(
+                        "❌ Голосовые сообщения все еще отключены. "
+                        "Пожалуйста, проверьте настройки Telegram.",
+                        show_alert=True
+                    )
+                    logger.warning(f"Voice messages still forbidden on retry for {message_key}")
+                else:
+                    await query.answer("Ошибка при отправке голосового сообщения", show_alert=True)
+                    logger.error(f"Error retrying voice message: {e}")
+        else:
+            await query.answer("Данные для повтора не найдены", show_alert=True)
+            logger.warning(f"Retry data not found for message {message_key}")

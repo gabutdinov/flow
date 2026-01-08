@@ -10,31 +10,24 @@ logger = logging.getLogger(__name__)
 client = OpenAI(api_key=config.OPENAI_API_KEY)
 
 
-async def transcribe_audio(audio_file_path: str) -> tuple[str, str]:
+async def transcribe_audio(audio_file_path: str) -> str:
     """
-    Transcribe audio file to text using Whisper API and detect language
+    Transcribe audio file to text using Whisper API
 
     Args:
         audio_file_path: Path to the audio file
 
     Returns:
-        Tuple of (transcribed_text, detected_language)
-        detected_language is ISO 639-1 code (e.g., 'en', 'ru', 'es')
+        Transcribed text
     """
     try:
         with open(audio_file_path, "rb") as audio_file:
-            # Use verbose_json to get language detection
             transcript = client.audio.transcriptions.create(
                 model=config.WHISPER_MODEL,
-                file=audio_file,
-                response_format="verbose_json"
+                file=audio_file
             )
-
-        detected_language = transcript.language if hasattr(transcript, 'language') else 'unknown'
-        text = transcript.text
-
-        logger.info(f"Audio transcribed successfully: {text[:50]}... (language: {detected_language})")
-        return text, detected_language
+        logger.info(f"Audio transcribed successfully: {transcript.text[:50]}...")
+        return transcript.text
     except Exception as e:
         logger.error(f"Error transcribing audio: {e}")
         raise

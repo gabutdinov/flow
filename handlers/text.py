@@ -39,10 +39,10 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             detected_lang = analysis_data.get("detected_language", "неизвестном языке")
             error_message = (
                 f"❌ Обнаружен {detected_lang}\n\n"
-                f"Пожалуйста, отправьте сообщение **на английском языке**.\n\n"
+                f"Пожалуйста, отправьте сообщение <b>на английском языке</b>.\n\n"
                 f"This bot is for practicing English. Please send your message in English."
             )
-            await update.message.reply_text(error_message, parse_mode="Markdown")
+            await update.message.reply_text(error_message, parse_mode="HTML")
             logger.warning(f"User {telegram_id} sent text message in {detected_lang}")
             return
 
@@ -61,10 +61,10 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         # Send short analysis
-        short_message = f"{emoji} {corrected_sentence}\n\n_{short_analysis}_"
+        short_message = f"{emoji} {corrected_sentence}\n\n<i>{short_analysis}</i>"
         analysis_msg = await update.message.reply_text(
             short_message,
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_markup=reply_markup
         )
 

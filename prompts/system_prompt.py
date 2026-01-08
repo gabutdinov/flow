@@ -125,10 +125,11 @@ Quality levels:
 - "needs_work" - significant errors or hard to understand
 
 For corrected_sentence:
-- Use markdown: ~wrong~ *correct* for corrections
-- For word order: ~wrong order~ → *correct order*
-- Example: "I ~go~ *went* to ~park~ *the park* yesterday"
+- Use HTML tags: <s>wrong</s> <b>correct</b> for corrections
+- For word order changes: <s>wrong order</s> → <b>correct order</b>
+- Example: "I <s>go</s> <b>went</b> to <s>park</s> <b>the park</b> yesterday"
 - If perfect, return original text unchanged
+- IMPORTANT: Use HTML tags (<s> for strikethrough, <b> for bold), NOT markdown
 
 For short_analysis:
 - Keep it very brief (1-2 sentences)
@@ -155,9 +156,9 @@ Example for "I go to park yesterday":
   "detected_language": "",
   "quality": "good",
   "original_text": "I go to park yesterday",
-  "corrected_sentence": "I ~go~ *went* to ~park~ *the park* yesterday",
+  "corrected_sentence": "I <s>go</s> <b>went</b> to <s>park</s> <b>the park</b> yesterday",
   "short_analysis": "Нужно прошедшее время (went) и артикль (the park)",
-  "full_analysis": "**Грамматика:**\\n• ~go~ → *went* (прошедшее время)\\n• ~to park~ → *to the park* (нужен артикль)\\n\\n**Более естественно:**\\n• Можно добавить: \\"I went to the park yesterday to play football\\"\\n\\n**Отлично:**\\n👍 Правильный порядок слов и использование \\"yesterday\\""
+  "full_analysis": "<b>Грамматика:</b>\\n• <s>go</s> → <b>went</b> (прошедшее время)\\n• <s>to park</s> → <b>to the park</b> (нужен артикль)\\n\\n<b>Более естественно:</b>\\n• Можно добавить: \\"I went to the park yesterday to play football\\"\\n\\n<b>Отлично:</b>\\n👍 Правильный порядок слов и использование \\"yesterday\\""
 }}
 
 Example for perfect sentence "I went to the park yesterday":
@@ -168,7 +169,7 @@ Example for perfect sentence "I went to the park yesterday":
   "original_text": "I went to the park yesterday",
   "corrected_sentence": "I went to the park yesterday",
   "short_analysis": "Отлично! Все правильно. 👍",
-  "full_analysis": "**Грамматика:**\\n✓ Все идеально!\\n\\n**Альтернативы:**\\n• \\"I visited the park yesterday\\"\\n• \\"Yesterday, I went to the park\\"\\n\\n**Словарь:**\\n👍 Отличное использование прошедшего времени и артиклей."
+  "full_analysis": "<b>Грамматика:</b>\\n✓ Все идеально!\\n\\n<b>Альтернативы:</b>\\n• \\"I visited the park yesterday\\"\\n• \\"Yesterday, I went to the park\\"\\n\\n<b>Словарь:</b>\\n👍 Отличное использование прошедшего времени и артиклей."
 }}
 
 Example for non-English message "Привет, как дела?":
