@@ -8,7 +8,7 @@ services:
       - .env
     command: python main.py
     volumes:
-      - ./bot.db:/app/bot.db
+      - ./data:/app/data
       - ./temp_audio:/app/temp_audio
     restart: unless-stopped
 
